@@ -88,6 +88,8 @@ type ArtifactUploadConfig struct {
 	// Uploader flags
 	GlobResolveFollowSymlinks bool `cli:"glob-resolve-follow-symlinks"`
 	UploadSkipSymlinks        bool `cli:"upload-skip-symlinks"`
+	UploadTimeout             int  `cli:"upload-timeout"`
+	UploadRetries             int  `cli:"upload-retries"`
 
 	// deprecated
 	FollowSymlinks bool `cli:"follow-symlinks" deprecated-and-renamed-to:"GlobResolveFollowSymlinks"`
@@ -126,6 +128,19 @@ var ArtifactUploadCommand = cli.Command{
 			EnvVar: "BUILDKITE_AGENT_ARTIFACT_SYMLINKS",
 		},
 
+		cli.IntFlag{
+			Name:   "upload-timeout",
+			Value:  5,
+			Usage:  "Seconds to allow artifact upload requests",
+			EnvVar: "BUILDKITE_ARTIFACT_UPLOAD_TIMEOUT",
+		},
+		cli.IntFlag{
+			Name:   "upload-retries",
+			Value:  10,
+			Usage:  "Number of tries to artifact uploads",
+			EnvVar: "BUILDKITE_ARTIFACT_UPLOAD_RETRIES",
+		},
+
 		// API Flags
 		AgentAccessTokenFlag,
 		EndpointFlag,
@@ -159,6 +174,8 @@ var ArtifactUploadCommand = cli.Command{
 			// this works as long as the user only sets one of the two flags
 			GlobResolveFollowSymlinks: (cfg.GlobResolveFollowSymlinks || cfg.FollowSymlinks),
 			UploadSkipSymlinks:        cfg.UploadSkipSymlinks,
+			UploadTimeout:             cfg.UploadTimeout,
+			UploadRetries:             cfg.UploadRetries,
 		})
 
 		// Upload the artifacts

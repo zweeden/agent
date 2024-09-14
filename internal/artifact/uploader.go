@@ -52,6 +52,12 @@ type UploaderConfig struct {
 
 	// Whether to not upload symlinks
 	UploadSkipSymlinks bool
+
+	// Timeout in seconds for artifact uploads
+	UploadTimeout int
+
+	// Number of retries to attempt upload/s
+	UploadRetries int
 }
 
 type Uploader struct {
@@ -75,6 +81,7 @@ func NewUploader(l logger.Logger, ac APIClient, c UploaderConfig) *Uploader {
 
 func (a *Uploader) Upload(ctx context.Context) error {
 	// Create artifact structs for all the files we need to upload
+
 	artifacts, err := a.Collect(ctx)
 	if err != nil {
 		return fmt.Errorf("collecting artifacts: %w", err)
@@ -480,11 +487,11 @@ func (a *Uploader) upload(ctx context.Context, artifacts []*api.Artifact) error 
 					a.logger.Debug("Artifact `%s` has state `%s`", id, state)
 				}
 
-				timeout := 5 * time.Second
+				timeout := time.Duration(a.conf.UploadTimeout) * time.Second
 
 				// Update the states of the artifacts in bulk.
 				err := roko.NewRetrier(
-					roko.WithMaxAttempts(10),
+					roko.WithMaxAttempts(a.conf.UploadRetries),
 					roko.WithStrategy(roko.ExponentialSubsecond(500*time.Millisecond)),
 				).DoWithContext(ctx, func(r *roko.Retrier) error {
 
@@ -543,8 +550,8 @@ func (a *Uploader) upload(ctx context.Context, artifacts []*api.Artifact) error 
 			// on whether or not it passed. We'll retry the upload
 			// a couple of times before giving up.
 			err := roko.NewRetrier(
-				roko.WithMaxAttempts(10),
-				roko.WithStrategy(roko.Constant(5*time.Second)),
+				roko.WithMaxAttempts(a.conf.UploadRetries),
+				roko.WithStrategy(roko.Constant(time.Duration(a.conf.UploadTimeout)*time.Second)),
 			).DoWithContext(ctx, func(r *roko.Retrier) error {
 				if err := uploader.Upload(ctx, artifact); err != nil {
 					a.logger.Warn("%s (%s)", err, r)
